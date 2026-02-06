@@ -1,0 +1,227 @@
+---
+title: "Nahant Marsh 2025 Song Monitor Project"
+format: html
+editor: visual
+---
+
+# Nahant Marsh 2025 Song Monitor Project
+
+### by John Stofferahn
+
+This document preserves the charts and graphs used in the 2025 Song Monitor Project at Nahant Marsh in 2025. In this document, the charts & graphs and their explanations are written below for the sake of posterity.
+
+## Prerequisites
+
+For this project, the "tidyverse" package provided me with everything I needed in order to analyze the data. From this package, the following libraries were used:
+
+-   tidyverse: provided the basic tidyverse functions
+-   dplyr: allowed the ability to create graphs through ggplot2
+-   readxl: allowed the ability to read from excel files, such as the one used to store this project's data
+-   writexl: allowed the ability to write to excel files, in case such a function was necessary
+-   lubridate: unknown (figure this out please)
+
+```{r}
+install.packages("tidyverse")
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(writexl)
+library(lubridate)
+```
+
+## Import and Cleaning
+
+Much of the data work done for this project occurred before using RStudio; mainly, recording bird calls through song monitors in the field, uploading song monitor SD cards onto the computer, processing these memory files through Kaleidoscope Pro to group the bird calls into clusters, processing those files through BirdNET to identify the bird in the recording, and then copying this data onto a singular excel sheet (with one tab for each monitor) that was then uploaded into RStudio.
+
+```{r}
+# Importing the data
+nm_final_data <- read_excel(
+  "C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx",
+  col_names = c("monitor", "year", "month", "day", "datetime", "start", "end", "scientific_name", "common_name", "confidence_score", "filepath", "latitude", "longitude", "min_confidence"),
+  skip = 1,
+  na = c("", "NA"),
+  col_types = c("text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "text", "text", "numeric", "text", "numeric", "numeric", "numeric")
+)
+nm_final_data
+```
+
+The `janitor()` function was used in order to clean the names, just to make sure no odd formatting still existed.
+
+```{r}
+# janitor
+nm_all_monitors <- nm_all_monitors |> 
+  janitor::clean_names()
+```
+
+As mentioned, this excel sheet had subtabs for each monitor used in the study. Thus, each of these were uploaded as separate dataframes that were then combined together.
+
+```{r}
+# Incorporating all subtabs
+bird1 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird1", na = "NA")
+bird2 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird2", na = "NA")
+bird3 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird3", na = "NA")
+bird4 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird4", na = "NA")
+bird5 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird5", na = "NA")
+bird6 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird6", na = "NA")
+bird7 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird7", na = "NA")
+bird8 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird8", na = "NA")
+
+nm_all_monitors <- bind_rows(bird1, bird2, bird3, bird4, bird5, bird6, bird7, bird8)
+```
+
+In this nm_all_monitors dataframe, the year, month, date, and time of the recordings are all separate columns. To make future data analysis easier, the `mutate()` function was used to create a combined date with the year, month, and date of each row, while the time of the recordings were binned according to the hour in which they were created.
+
+In addition, one of the goals of this study was to look at rare bird species that might possibly show up in the data. Therefore, a list of bird species rare to the Quad Cities area was compiled into the variable `rare_qc_birds`, and a boolean variable was added to the nm_all_monitors dataframe.
+
+```{r}
+rare_qc_birds <- c("Black-bellied Whistling-Duck", "Ross's Goose", "Surf Scoter", "White-winged Scoter", "Black Scoter", "Gray Partridge", "Red-necked Grebe", "Chuck-will's-widow", "Rufous Hummingbird", "King Rail", "Yellow Rail", "Black Rail", "Whooping Crane", "Black-necked Stilt", "Whimbrel", "Hudsonian Godwit", "Marbled Godwit", "Ruddy Turnstone", "Red-necked Phalarope", "Neotropic Cormorant", "Little Blue Heron", "Snowy Egret", "Yellow-crowned Night Heron", "White-faced Ibis", "American Goshawk", "Mississippi Kite", "American Barn Owl", "Monk Parakeet", "Western Kingbird", "Loggerhead Shrike", "Fish Crow", "Bohemian Waxwing", "Bewick's Wren", "Townsend's Solitare", "Evening Grosbeak", "Harris's Sparrow", "LeConte's Sparrow", "Nelson's Sparrow", "Spotted Towhee", "Yellow-headed Blackbird", "Great-tailed Grackle", "Prairie Warbler")
+# data taken from "Quad City Avian Checklist" by Kelly J. McKay, Brian L. Blevins, Jason L. Monson, compiled May 2025
+
+nm_all_monitors <- nm_all_monitors |> 
+  mutate(
+    time_period = cut(datetime, breaks = c(40000, 49999, 189999, 199999, 210000), labels = c("Early Dawn", "Late Dawn", "Early Dusk", "Late Dusk")),
+    combined_date = make_date(year, month, day),
+    rare_bird = common_name %in% c(rare_qc_birds)
+    )
+view(nm_all_monitors)
+```
+
+## Analysis
+
+The analysis portion of this project was meant in order to gather basic ideas on the nature of this data, before significant time was put into developing graphs for display purposes. For example, statistics on the total number of rows, average number of rows over time, and the number of distinct birds were gathered, as seen below. 
+
+- Note: I could not find a way to get the average calls per day in the same summarize code as the other functions, thus the two pieces of code. 
+
+```{r}
+# table with each monitor's total calls, avg calls, number of distinct birds, and average call confidence
+nm_all_monitors |> 
+  group_by(monitor) |> 
+  summarize(count = n(),
+            # avg_count = avg_recordings,
+            count_dist_species = n_distinct(common_name),
+            avg_conf = mean(confidence)
+  ) 
+
+nm_all_monitors |> 
+  group_by(monitor, combined_date) |> 
+  summarize(count = n()) |> 
+  summarize(avg_count = mean(count)) 
+
+```
+
+Additionally, a brief dataframe detailing the frequency of the birds and their boolean rare bird status was also created for future reference.
+
+```{r}
+# sorted bird frequency
+all_bird_freq <- nm_all_monitors |> 
+  count(common_name, rare_bird, sort = TRUE)
+view(all_bird_freq)
+
+```
+
+## Graphs
+
+Once the above basic exploratory analysis was out of the way, I moved on to exploratory graphing. 
+
+In order to preserve an listing and color system for the monitors in the study, I created an order scheme as well as a color scheme, with a reverse of the order scheme in case the visual specifications of the graph demanded it. 
+
+```{r}
+### Ordering (should be completed first)
+
+# monitor ordering
+monitor_order <- c("CRP 1", "CRP 2", "Main Marsh", "Catwalk", "INHF", "Carp Lake", "Rockingham Bottoms", "Drainage Stream Bank") 
+
+nm_all_monitors$monitor <- factor(nm_all_monitors$monitor, levels = monitor_order)  
+
+monitor_colors <- c("CRP 1" = "maroon", "CRP 2" = "red", "Main Marsh" = "orange", "Catwalk" = "yellow", "INHF" = "green", "Carp Lake" = "darkgreen", "Rockingham Bottoms" = "blue", "Drainage Stream Bank" = "purple")
+
+reverse_monitor_order <- c("Drainage Stream Bank", "Rockingham Bottoms", "Carp Lake", "INHF", "Catwalk", "Main Marsh", "CRP 2", "CRP 1")
+
+```
+
+The first graph created was meant to analyze the number of bird calls over time, split up for each monitor according to the system developed above. 
+
+```{r}
+# num bird calls over time                        
+nm_all_monitors |>
+  ggplot(aes(x = combined_date, fill = monitor)) + 
+  scale_fill_manual(values = monitor_colors) + 
+  geom_bar() +
+  labs(
+    title = "Bird Calls over Time",
+    x = "Date", y = "Count",
+    fill = "Monitor Location"
+  )
+
+```
+
+
+### (put two sea-graphs here)
+
+
+
+
+After getting a look at the distribution of bird species across location, date, and time of day, I wanted to analyze the specifics of each monitor.
+
+I created a boxplot analyzing the average species "richness" - or number of distinct species - at each monitor location. 
+
+```{r}
+# distinct bird species by day per monitor     
+ndsd <- nm_all_monitors |> 
+  group_by(monitor, combined_date) |> 
+  summarize(
+    num_dis_species_day = n_distinct(common_name)
+  ) 
+ndsd |> 
+  group_by(monitor) |> 
+  ggplot(aes(x = monitor, y = num_dis_species_day)) + 
+  scale_x_discrete(limits = monitor_order, guide = guide_axis(n.dodge=2)) +
+  geom_boxplot() +
+  labs(
+    title = "Bird Species Richness by Location",
+    x = "Monitor Location",
+    y = "Distinct Species per Day"
+  )
+
+```
+
+Next, I looked at the total count of each detected species (such as seen in `all_bird_freq` above), split again by monitor location.
+
+```{r}
+# bird call frequency  
+nm_all_monitors |> 
+  ggplot(aes(x = fct_infreq(common_name), fill = monitor)) +
+  scale_fill_manual(values = monitor_colors) +
+  scale_x_discrete(labels = NULL) + 
+  geom_bar() +
+  labs(
+    title = "Location Distribution of All Bird Species",
+    x = "Bird Species",
+    y = "Number of recorded calls",
+    fill = "Monitor Location"
+  )
+
+```
+
+An interesting trend can be seen here. The data is heavily skewed to the right: of the 207 total species, 80 are recorded less than 10 times, and only 24 species have more than 1000 recorded calls. Thus, to get a better sense of the the location distribution of the most populous species (which would likely heavily influence the data), I created a miniature data frame containing only the top 10 most common species. 
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
