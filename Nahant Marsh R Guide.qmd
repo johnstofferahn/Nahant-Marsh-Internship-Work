@@ -8,7 +8,13 @@ editor: visual
 
 ### by John Stofferahn
 
-This document preserves the charts and graphs used in the 2025 Song Monitor Project at Nahant Marsh in 2025. In this document, the charts & graphs and their explanations are written below for the sake of posterity.
+This document preserves the charts and graphs used in the 2025 Song Monitor Project at Nahant Marsh in 2025, and explains the thought processes by which the terms of this project dictated the creation of these graphs.
+
+## Abstract
+
+In the summer of 2025 when I was a Research Intern at the Nahant Marsh Education Center in Davenport, Iowa, the research project I chose to concentrate on was the Marsh's study on the bird populations present within Marsh boundaries. Although this was long an area of interest for the Marsh, this was the first time anyone had analyzed the populations in this specific manner, meaning that I was responsible not only for creating the terms of the project and analyzing the results but also designing and writing the code by which the project data could be conglomerated and plotted.
+
+The purpose of this file is to serve as an accompaniment to the raw RStudio code written by me for this project, so as to better illustrate the process I designed and the graphs I created in order to accomplish the goals of this project.
 
 ## Prerequisites
 
@@ -18,7 +24,7 @@ For this project, the "tidyverse" package provided me with everything I needed i
 -   dplyr: allowed the ability to create graphs through ggplot2
 -   readxl: allowed the ability to read from excel files, such as the one used to store this project's data
 -   writexl: allowed the ability to write to excel files, in case such a function was necessary
--   lubridate: unknown (figure this out please)
+-   lubridate: allowed the ability to work with datetimes in R
 
 ```{r}
 install.packages("tidyverse")
@@ -45,14 +51,6 @@ nm_final_data <- read_excel(
 nm_final_data
 ```
 
-The `janitor()` function was used in order to clean the names, just to make sure no odd formatting still existed.
-
-```{r}
-# janitor
-nm_all_monitors <- nm_all_monitors |> 
-  janitor::clean_names()
-```
-
 As mentioned, this excel sheet had subtabs for each monitor used in the study. Thus, each of these were uploaded as separate dataframes that were then combined together.
 
 ```{r}
@@ -67,11 +65,24 @@ bird7 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Ca
 bird8 <- read_excel("C:/Users/johns/OneDrive/Documents/Internships, Jobs, and Careers/Nahant Marsh/Nahant Marsh Final Bird Data.xlsx", sheet = "Bird8", na = "NA")
 
 nm_all_monitors <- bind_rows(bird1, bird2, bird3, bird4, bird5, bird6, bird7, bird8)
+nm_all_monitors
 ```
 
-In this nm_all_monitors dataframe, the year, month, date, and time of the recordings are all separate columns. To make future data analysis easier, the `mutate()` function was used to create a combined date with the year, month, and date of each row, while the time of the recordings were binned according to the hour in which they were created.
+The `janitor()` function was used in order to clean the names, just to make sure no odd formatting still existed.
 
-In addition, one of the goals of this study was to look at rare bird species that might possibly show up in the data. Therefore, a list of bird species rare to the Quad Cities area was compiled into the variable `rare_qc_birds`, and a boolean variable was added to the nm_all_monitors dataframe.
+```{r}
+# janitor
+nm_all_monitors <- nm_all_monitors |> 
+  janitor::clean_names() |> 
+  rename(
+    monitor = 'moniter'
+  )
+nm_all_monitors
+```
+
+In this `nm_all_monitors` dataframe, the year, month, date, and time of the recordings are all separate columns. To make future data analysis easier, the `mutate()` function was used to create a combined date with the year, month, and date of each row, while the time of the recordings were binned according to the hour in which they were created.
+
+In addition, one of the goals of this study was to look at rare bird species that might possibly show up in the data. Therefore, a list of bird species rare to the Quad Cities area was compiled into the variable `rare_qc_birds`, and a Boolean variable was added to the `nm_all_monitors` dataframe.
 
 ```{r}
 rare_qc_birds <- c("Black-bellied Whistling-Duck", "Ross's Goose", "Surf Scoter", "White-winged Scoter", "Black Scoter", "Gray Partridge", "Red-necked Grebe", "Chuck-will's-widow", "Rufous Hummingbird", "King Rail", "Yellow Rail", "Black Rail", "Whooping Crane", "Black-necked Stilt", "Whimbrel", "Hudsonian Godwit", "Marbled Godwit", "Ruddy Turnstone", "Red-necked Phalarope", "Neotropic Cormorant", "Little Blue Heron", "Snowy Egret", "Yellow-crowned Night Heron", "White-faced Ibis", "American Goshawk", "Mississippi Kite", "American Barn Owl", "Monk Parakeet", "Western Kingbird", "Loggerhead Shrike", "Fish Crow", "Bohemian Waxwing", "Bewick's Wren", "Townsend's Solitare", "Evening Grosbeak", "Harris's Sparrow", "LeConte's Sparrow", "Nelson's Sparrow", "Spotted Towhee", "Yellow-headed Blackbird", "Great-tailed Grackle", "Prairie Warbler")
@@ -83,14 +94,14 @@ nm_all_monitors <- nm_all_monitors |>
     combined_date = make_date(year, month, day),
     rare_bird = common_name %in% c(rare_qc_birds)
     )
-view(nm_all_monitors)
+nm_all_monitors
 ```
 
-## Analysis
+# Analysis
 
-The analysis portion of this project was meant in order to gather basic ideas on the nature of this data, before significant time was put into developing graphs for display purposes. For example, statistics on the total number of rows, average number of rows over time, and the number of distinct birds were gathered, as seen below. 
+The analysis portion of this project was meant in order to gather basic ideas on the nature of this data, before significant time was put into developing graphs for display purposes. For example, statistics on the total number of rows, average number of rows over time, and the number of distinct birds were gathered, as seen below.
 
-- Note: I could not find a way to get the average calls per day in the same summarize code as the other functions, thus the two pieces of code. 
+-   Note: I could not find a way to get the average calls per day in the same summarize code as the other functions, thus the two pieces of code.
 
 ```{r}
 # table with each monitor's total calls, avg calls, number of distinct birds, and average call confidence
@@ -104,69 +115,164 @@ nm_all_monitors |>
 
 nm_all_monitors |> 
   group_by(monitor, combined_date) |> 
-  summarize(count = n()) |> 
-  summarize(avg_count = mean(count)) 
-
+  summarize(count = n()) |>
+  summarize(avg_count = mean(count))
 ```
 
-Additionally, a brief dataframe detailing the frequency of the birds and their boolean rare bird status was also created for future reference.
+Additionally, a brief dataframe detailing the frequency of the birds and their Boolean status as a rare bird was also created for future reference.
 
 ```{r}
 # sorted bird frequency
 all_bird_freq <- nm_all_monitors |> 
   count(common_name, rare_bird, sort = TRUE)
-view(all_bird_freq)
+all_bird_freq
 
 ```
 
+Before final analysis was completed and I moved on to plotting the statistics of the bird population with graphs, I completed one final piece of analysis by comparing the number of distinct bird species by location between the raw `nm_all_monitors` and a reduced file `nm_def_here`, which included only birds which had more than ten identified calls in the database.
+
+```{r}
+# num distinct species by location
+dis_species_by_loc <- nm_all_monitors |> 
+  group_by(monitor) |> 
+  summarize(num_dist_species = n_distinct(common_name)) |> 
+  arrange(desc(num_dist_species))
+dis_species_by_loc |> 
+  ggplot(aes(x = monitor, y = num_dist_species)) +
+  scale_x_discrete(guide = guide_axis(n.dodge=2)) +
+  geom_bar(stat = "identity") +
+  ylim(0, 150) +
+  labs(
+    title = "Distinct Bird Species by Location",
+    x = "Monitor Location",
+    y = "Count"
+  )
+
+# num distinct species by location - for sure
+nm_def_here <- nm_all_monitors |> 
+  group_by(common_name) |> 
+  filter(n() > 10)
+
+def_dis_species_by_loc <- nm_def_here |> 
+  group_by(monitor) |> 
+  summarize(num_dist_species = n_distinct(common_name)) |> 
+  arrange(desc(num_dist_species))
+def_dis_species_by_loc |> 
+  ggplot(aes(x = monitor, y = num_dist_species)) +
+  scale_x_discrete(guide = guide_axis(n.dodge=2)) +
+  geom_bar(stat = "identity") +
+  ylim(0, 150) +
+  labs(
+    title = "Definite Distinct Bird Species by Location",
+    x = "Monitor Location",
+    y = "Count"
+  )
+
+```
+
+The difference between these two graphs showed that, at every location, there was a large number of distinct bird species which were either hard to definitively prove their presence or misidentified by the software. After consulting with staff members, we agreed to keep the potential species in the larger study, as the project's focus upon determining the habits and locations of rarer birds meant that the risk for false positives was less than that of discarding false negatives. Therefore, while this potential for misidentification was something to be noted in the rest of the study (especially when considering the number of distinct species within the Marsh), the relatively small number of total recordings which made up the difference between the two sets of data meant that we predicted this difference would have little effect on the rest of the analysis.
+
+With this in mind, I continued onward and started creating visual representations of the bird populations at Nahant Marsh.
+
 ## Graphs
 
-Once the above basic exploratory analysis was out of the way, I moved on to exploratory graphing. 
+Once the above basic exploratory analysis was out of the way, I moved on to exploratory graphing.
 
-In order to preserve an listing and color system for the monitors in the study, I created an order scheme as well as a color scheme, with a reverse of the order scheme in case the visual specifications of the graph demanded it. 
+In order to preserve an listing and color system for the monitors in the study, I created an order scheme as well as a color scheme, with a reverse of the order scheme in case the visual specifications of the graph demanded it.
 
 ```{r}
 ### Ordering (should be completed first)
 
 # monitor ordering
-monitor_order <- c("CRP 1", "CRP 2", "Main Marsh", "Catwalk", "INHF", "Carp Lake", "Rockingham Bottoms", "Drainage Stream Bank") 
+monitor_order <- c("CRP 1", "Beaver Complex", "Main Marsh", "Catwalk", "INHF", "Carp Lake", "Rockingham Bottoms", "Drainage Stream Bank") 
 
-nm_all_monitors$monitor <- factor(nm_all_monitors$monitor, levels = monitor_order)  
+alt_monitor_order <- c("INHF", "Carp Lake", "Rockingham Bottoms", "Drainage Stream Bank", "CRP 1", "Beaver Complex", "Main Marsh", "Catwalk")
 
-monitor_colors <- c("CRP 1" = "maroon", "CRP 2" = "red", "Main Marsh" = "orange", "Catwalk" = "yellow", "INHF" = "green", "Carp Lake" = "darkgreen", "Rockingham Bottoms" = "blue", "Drainage Stream Bank" = "purple")
+nm_all_monitors$monitor <- factor(nm_all_monitors$monitor, levels = alt_monitor_order)  
 
-reverse_monitor_order <- c("Drainage Stream Bank", "Rockingham Bottoms", "Carp Lake", "INHF", "Catwalk", "Main Marsh", "CRP 2", "CRP 1")
+monitor_colors <- c("CRP 1" = "maroon", "Beaver Complex" = "red", "Main Marsh" = "orange", "Catwalk" = "yellow", "INHF" = "green", "Carp Lake" = "darkgreen", "Rockingham Bottoms" = "blue", "Drainage Stream Bank" = "purple")
+
+reverse_monitor_order <- c("Drainage Stream Bank", "Rockingham Bottoms", "Carp Lake", "INHF", "Catwalk", "Main Marsh", "Beaver Complex", "CRP 1")
 
 ```
 
-The first graph created was meant to analyze the number of bird calls over time, split up for each monitor according to the system developed above. 
+The first graph I wished to analyze was that of the basic bird count across the Marsh over the course of the summer, visually divided into bird monitor areas by monitor colors. By doing thus, it would allow me to see both a good estimation of the amount of birds in the Marsh during the summer, but also where large numbers of birds would concentrate over time.
 
 ```{r}
-# num bird calls over time                        
+
+# num bird calls over time
 nm_all_monitors |>
   ggplot(aes(x = combined_date, fill = monitor)) + 
-  scale_fill_manual(values = monitor_colors) + 
+  scale_fill_manual(values = monitor_colors) +
   geom_bar() +
   labs(
-    title = "Bird Calls over Time",
+    title = "Count of Bird Calls over Time",
     x = "Date", y = "Count",
     fill = "Monitor Location"
   )
 
 ```
 
+Through this graph, I could see that the number of recorded bird calls across the Marsh could be quite variable by day, a pattern which held up at most of the locations of the monitors. The addition of four more monitors to the first four midway through the summer confirmed that this phenomenon was consistent across the Marsh, and not just at the first four locations. Furthermore, there was a drop in bird calls as the summer waned into fall, although unfortunately fully analyzing this trend fell outside of the time range of this study.
 
-### (put two sea-graphs here)
-
-
-
-
-After getting a look at the distribution of bird species across location, date, and time of day, I wanted to analyze the specifics of each monitor.
-
-I created a boxplot analyzing the average species "richness" - or number of distinct species - at each monitor location. 
+-   Note: after this graph, the normal order of the bird monitors was reestablished.
 
 ```{r}
-# distinct bird species by day per monitor     
+nm_all_monitors$monitor <- factor(nm_all_monitors$monitor, levels = monitor_order)
+```
+
+With this general overview established, I wanted to gain a better understanding of the specifics of this distribution which might be overlooked or overshadowed by other trends in the first bar chart. In particular, by gaining information about which locations received bumps or dry spells at distinct times of the summer and times of day, the Marsh could gain a better idea of when and where birds would be found frequently in Marsh property.
+
+To satisfy this first desire, I created a tile graph to look at the distribution of bird calls across the different monitor locations across the course of the summer.
+
+```{r}
+# num bird calls by date and location 
+nm_all_monitors |> 
+  count(combined_date, monitor) |> 
+  ggplot(aes(x = combined_date, y = monitor)) +
+  scale_y_discrete(limits = reverse_monitor_order) +
+  scale_fill_gradient(low = "white", high = "blue") +
+  geom_tile(aes(fill = n)) +
+  # geom_text(aes(label = n), color = "white", size = 4) +
+  # coord_fixed() + 
+  labs(
+    title = "Count of Bird Calls by Date and Location",
+    y= "Monitor Location", 
+    x = "Date",
+    fill = "Number of recorded calls"
+  )
+
+```
+
+While the inclusion of the four additional monitors late in the study impeded research at those locations beforehand, their inclusion later revealed interesting periods of high bird activity which the Marsh was very interested in studying. However, more specific information was also wanted in order to most effectively utilize the time and effort of Marsh workers when investigating these patterns.
+
+As most of the work done by Marsh employees is accomplished during typical working hours, Nahant Marsh had a good idea of where and when to find birds during daylight hours. However, during the hours around sunrise and sunset (when many birds are most active) there was a lack of data. Therefore, the bird monitors were set to record bird calls only around these hours around sunrise and sunset to supplement information already known by the Marsh. In this vein, I created another graph similar to the last to find out the times of morning and evening birds were most active across the duration of the summer.
+
+```{r}
+# num rows per time period
+nm_all_monitors |> 
+  count(combined_date, time_period) |> 
+  ggplot(aes(x = combined_date, y = time_period)) +
+  scale_fill_gradient(low = "white", high = "blue") +
+  geom_tile(aes(fill = n))+
+  # coord_fixed() +
+  labs(
+    title = "Count of Bird Calls by Date and Time",
+    x = "Date", 
+    y = "Time of Day",
+    fill = "Number of recorded calls"
+  )
+
+```
+
+While the general increase in the number of bird calls in mid-June was easily explained by the inclusion of four additional bird monitors, what was less easy to explain was the two moments of extreme activity in early dawn in mid-May and late dusk in mid-June. Furthermore, it was also notable that, despite the increase in bird monitors, there was little increase in recorded bird calls in the early dawn and late dusk. These findings were of interest to Marsh employees, and so I looked to further graphs to see if these phenomena would be explained via further analysis.
+
+One specific concern about bird populations at Nahant Marsh was the number of distinct species that could be identified within Marsh property. Because species diversity is used as a measurement of environmental health (especially when the species can be conclusively determined to be bird species rare to the area), additional study into this realm of the bird population was a priority for this study.
+
+Given that earlier graphs had shown the wild variation in recorded bird calls by date and location, I created a boxplot which showed the median and percentile numbers of distinct bird species found at each monitor location every day, to use as a measure of species richness in each area.
+
+```{r}
+# distinct bird species by day per monitor
 ndsd <- nm_all_monitors |> 
   group_by(monitor, combined_date) |> 
   summarize(
@@ -179,16 +285,43 @@ ndsd |>
   geom_boxplot() +
   labs(
     title = "Bird Species Richness by Location",
+    # subtitle = "Each point is one day",
     x = "Monitor Location",
     y = "Distinct Species per Day"
   )
 
 ```
 
-Next, I looked at the total count of each detected species (such as seen in `all_bird_freq` above), split again by monitor location.
+The results of this graph showed that the median number of distinct bird species could vary wildly by day at each location, but that overall some of the locations at the Marsh had much higher median and percentile numbers than others. The Marsh was very interested in this result, and further work is being done to see why some locations at the Marsh were more attractive to a greater range of bird species than others.
+
+-   Note that, as mentioned above, this was the graph which would be most affected by the potential false positive detections of distinct bird species by the detecting programs. Creating this graph with the `nm_def_here` data gives slightly less numbers for each measurement for each monitor. However, as the main patterns of the species richness at each monitor remains the same between the main and the reduced dataset, and to preserve harmony with the rest of the generated graphs, I used the standard `nm_all_monitors` dataset here as everywhere else, concerns notwithstanding.
 
 ```{r}
-# bird call frequency  
+# doing the same as above, but with definite species           
+# not as much difference as might be expected
+ndsd2 <- nm_def_here |> 
+  group_by(monitor, combined_date) |> 
+  summarize(
+    num_dis_species_day = n_distinct(common_name)
+  ) 
+ndsd2 |> 
+  group_by(monitor) |> 
+  ggplot(aes(x = monitor, y = num_dis_species_day)) + 
+  scale_x_discrete(limits = monitor_order, guide = guide_axis(n.dodge=2)) +
+  geom_boxplot() +
+  labs(
+    title = "Bird Species Richness by Location",
+    subtitle = "Filtered for bird species with >= 10 recordings",
+    x = "Monitor Location",
+    y = "Distinct Species per Day"
+  ) 
+
+```
+
+One measure that I was concerned about was the distribution of bird calls by bird species at the Marsh. Studies which rely primarily upon audio recordings of bird activity in lieu of visual or other means of data collection rely on the assumption that populations of birds can be roughly assumed through the volume of recorded calls by that species. However, there is always the risk that louder birds which call more frequently can overshadow softer and less vocal birds. Additionally, thanks to the reliance upon bird identifying software instead of human listeners, there is a worry that bird species whose calls are similar to other species or are otherwise hard to identify will not be identified correctly. Thus, I created a simple bar chart to show the number of calls attributed to each species in our data, split visually by the location their calls were recorded in.
+
+```{r}
+# bird call frequency
 nm_all_monitors |> 
   ggplot(aes(x = fct_infreq(common_name), fill = monitor)) +
   scale_fill_manual(values = monitor_colors) +
@@ -203,25 +336,87 @@ nm_all_monitors |>
 
 ```
 
-An interesting trend can be seen here. The data is heavily skewed to the right: of the 207 total species, 80 are recorded less than 10 times, and only 24 species have more than 1000 recorded calls. Thus, to get a better sense of the the location distribution of the most populous species (which would likely heavily influence the data), I created a miniature data frame containing only the top 10 most common species. 
-
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+Although there were over 200 birds identified in the data, many were identified very few times, and a large proportion of the bird calls in the data were attributed to a very small number of species. To analyze these high-volume birds in greater detail, I created a smaller inset bar graph similar to the one above.
 
 ```{r}
-1 + 1
+# most common bird call frequency
+nm_top_10 |> 
+  ggplot(aes(x = (fct_infreq(common_name)), fill = monitor)) + 
+  scale_x_discrete(guide = guide_axis(n.dodge=3)) +
+  scale_fill_manual(limits = monitor_order, values = monitor_colors) +
+  geom_bar() +
+  labs(
+    title = "Location Distribution of Most Common Bird Species",
+    y = "Number of recorded calls",
+    x = "Bird Species",
+    fill = "Monitor Location"
+  )
 ```
 
-You can add options to executable code like this
+As expected, large amounts of bird calls by specific bird species were likely responsible for much of the presumed patterns seen in the earlier graphs - such as an influx of Indigo Buntings at Rockingham Bottoms.
+
+Many of the most commonly identified birds in this study are the ones expected by past research and anecdotal evidence. However, there was an interest in birds rare to the area, especially concerning if there were areas of the park that these particular species would frequent differently than more common birds. If this was so, it was the hope that by encouraging the aspects of the areas preferred by rarer birds in additional areas that the Marsh as a whole would become a friendlier place to these rare birds, for the greater well-being of the environmental diversity at Nahant Marsh.
+
+To see if this was the case, I created two graphs which would show the frequency of bird calls at each monitor location by the time of day, to see if there were any differences between common birds and these rarer bird species.
 
 ```{r}
-#| echo: false
-2 * 2
+# num rows per monitor per time period
+nm_all_monitors |> 
+  count(monitor, time_period) |> 
+  ggplot(aes(x = monitor, y = time_period)) +
+  scale_x_discrete(limits = monitor_order, guide = guide_axis(n.dodge=2)) +
+  scale_fill_gradient(low = "white", high = "red") + 
+  geom_tile(aes(fill = n)) +
+  # geom_text(aes(label = n), color = "white", size = 4) +
+  coord_fixed() + 
+  labs(
+    title = "Bird Calls by Time and Location",
+    y = "Time of Day", 
+    x = "Monitor Location",
+    fill = "Number of recorded calls"
+  )
+
+nm_rare_birds |>                
+  count(monitor, time_period) |> 
+  ggplot(aes(x = monitor, y = time_period)) +
+  scale_x_discrete(limits = monitor_order, guide = guide_axis(n.dodge=2)) +
+  scale_fill_gradient(low = "white", high = "red") + 
+  geom_tile(aes(fill = n)) +
+  coord_fixed() +
+  labs(
+    title = "Rare Bird Calls by Time and Location",
+    y = "Time of Day",
+    x = "Monitor Location",
+    fill = "Number of recorded calls"
+  )
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+From this graph one sees that there was a distinct difference in the apparent habits of common and rare birds, both in preferred time and location. However, the lack of a large number of calls from rare birds put this finding into less confidence than was hoped for.
+
+Furthermore, the average confidence level of calls identified as coming from rare birds was much less than that of non-rare birds, lending increased doubt on the real presence of birds rare to the Quad Cities area in this data.
+
+```{r}
+# "rare bird" detections are often less confident - probably incorrect
+rbd <- nm_all_monitors |> 
+  group_by(monitor, rare_bird) |> 
+  summarize(avg_conf = mean(confidence))
+rbd |> 
+  group_by(monitor, rare_bird) |>
+  ggplot(aes(x = monitor, y = avg_conf, fill = rare_bird)) + 
+  scale_x_discrete(limits = monitor_order, guide = guide_axis(n.dodge=2)) +
+  coord_cartesian(ylim = c(0.5, 0.9)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Average Recording Confidence by Monitor",
+    x = "Monitor Location",
+    y = "Average Recording Confidence",
+    fill = "Rare Bird Recording?"
+  )
+```
+
+# Conclusions
+
+Through this research and analysis, I was able to find several interesting trends about the habits and distributions of the bird populations at Nahant Marsh. While there were no breathtaking findings regarding specific locations or specific species of birds, by gaining this information through this study Nahant Marsh now has a better idea of how the populations of birds within the Marsh are distributed and tend to focus their activity, which they can put to good use in future projects meant to preserve and protect bird species both within the Marsh and around the Quad Cities area as a whole.
+
+Furthermore, by being able to accomplish the analytical portion of this project through this code in RStudio, I was personally able to gain good experience in coding using the R language in real-world environmental research, which I hope to be able to put to good use in future work I do in my career.
