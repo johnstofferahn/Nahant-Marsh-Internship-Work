@@ -1,6 +1,6 @@
 ### NM data analyzer.r
 ### John Stofferahn
-### 16 July 2025
+### 16 July 2025 (updated and cleaned 9 Feburary 2026)
 
 
 # Questions ---------------------------------------------------------------
@@ -137,6 +137,7 @@ nm_all_monitors |>
   group_by(monitor) |> 
   count(time_period)
 
+# count of bird calls by location and time of day (draft)
 nm_all_monitors |> 
   count(monitor, time_period) |> 
   ggplot(aes(x = monitor, y = time_period)) +
@@ -159,7 +160,7 @@ nm_all_monitors |>
   ggplot(aes(x = monitor)) + 
   geom_bar()
 
-# Avg confidence of rows per monitor (works)
+# Avg confidence of rows per monitor (works) - no risk of place-based confidence errors
 nm_all_monitors |> 
   group_by(monitor) |> 
   summarize(avg_conf = mean(confidence))
@@ -174,10 +175,11 @@ nm_all_monitors |>
   group_by(month, day) |> 
   distinct(common_name)
 
-# Avg confidence score in time periods (works)
+# Avg confidence score in time periods (works) - no risk of time-based confidence errors
 nm_all_monitors |> 
   group_by(time_period) |> 
   summarize(avg_conf = mean(confidence))
+
   
 # Number of distinct species (works)
 nm_all_monitors |> 
@@ -197,18 +199,34 @@ dis_species_by_loc <- nm_all_monitors |>
 dis_species_by_loc |> 
   ggplot(aes(x = monitor, y = num_dist_species)) +
   geom_bar(stat = "identity") +
+  ylim(0, 150) +
   labs(
     title = "Distinct Bird Species by Location",
     x = "Monitor Location",
     y = "Count"
   )
 
+# num distinct species by location - for sure
+def_dis_species_by_loc <- nm_def_here |> 
+  group_by(monitor) |> 
+  summarize(num_dist_species = n_distinct(common_name)) |> 
+  arrange(desc(num_dist_species))
+def_dis_species_by_loc |> 
+  ggplot(aes(x = monitor, y = num_dist_species)) +
+  geom_bar(stat = "identity") +
+  ylim(0, 150) +
+  labs(
+    title = "Definite Distinct Bird Species by Location",
+    x = "Monitor Location",
+    y = "Count"
+  )
 
-# table with total calls, avg calls, and distinct birds
+
+# table with total calls, number of distinct birds, and avg confidence level
 nm_all_monitors |> 
   group_by(monitor, combined_date) |> 
   summarize(total_count = n(),
-            avg_count = mean(total_count), .groups = "drop",
+            # avg_count = mean(total_count), .groups = "drop",
             num_dist_species = n_distinct(common_name),
             avg_conf = mean(confidence)
             )
@@ -220,20 +238,25 @@ nm_all_monitors |>
             count_dist_species = n_distinct(common_name),
             avg_conf = mean(confidence)
   ) 
+
+# adds avg count of birds per day to above table
 nm_all_monitors |> 
   group_by(monitor, combined_date) |> 
   summarize(count = n()) |> 
   summarize(avg_count = mean(count)) 
 
-# most common birds                                 # lists bird freq
+
+
+
+# most common birds                                 # lists bird freq (!)
 all_bird_freq <- nm_all_monitors |> 
   count(common_name, rare_bird, sort = TRUE)
 view(all_bird_freq)
 
-middle_bird_freq <- nm_all_monitors |> 
-  count(common_name, rare_bird) |> 
-  filter(count(common_name) > 100 | count(common_name) < 10000)
-view(middle_bird_freq)
+# middle_bird_freq <- nm_all_monitors |> 
+#   count(common_name, rare_bird) |> 
+#   filter(count(common_name) > 100 | count(common_name) < 10000)
+# view(middle_bird_freq)
 
 # least common birds
 nm_all_monitors |> 
@@ -280,7 +303,7 @@ first_four_monitor_order <- c("CRP 1", "CRP 2", "Main Marsh", "Catwalk")
 last_four_monitors <- c("INHF", "Carp Lake", "Rockingham Bottoms", "Drainage Stream Bank")
 last_four_monitor_order <- c("INHF", "Carp Lake", "Rockingham Bottoms", "Drainage Stream Bank")
 
-# top 10 most common ordering
+# top 10 most common ordering (based on all_bird_freq)
 nm_top_10_order <- c("Warbling Vireo", "Tree Swallow", "Prothonotary Warbler", "Indigo Bunting", "Red-winged Blackbird", "American Robin", "Common Grackle", "Eastern Kingbird", "Common Nighthawk", "Killdeer")
 
 
@@ -323,10 +346,18 @@ nm_rare_birds <- nm_all_monitors |>
 
 
 
-# num bird calls over time                          # works
+# num bird calls over time                          # works                      #(FIGURE 2)
+
+# for this graph only (to reduce visual confusion)
+alt_monitor_order <- c("INHF", "Carp Lake", "Rockingham Bottoms", "Drainage Stream Bank", "CRP 1", "Beaver Complex", "Main Marsh", "Catwalk")
+
+nm_all_monitors$monitor <- factor(nm_all_monitors$monitor, levels = alt_monitor_order) 
+
 nm_all_monitors |>
   ggplot(aes(x = combined_date, fill = monitor)) + 
-  scale_fill_manual(values = monitor_colors) + #scale_fill_discrete(limits = monitor_order)
+  scale_fill_manual(values = monitor_colors) +
+  # scale_fill_manual(limits = monitor_order) +
+  # scale_fill_discrete(limits = monitor_order) +
   geom_bar() +
   # facet_wrap(~monitor) +
   labs(
@@ -367,17 +398,22 @@ nm_all_monitors |>
 
 
 #   # reversed to show first four always at bottom        # Jimmy preferred version
-# nm_all_monitors |>
-#   ggplot(aes(x = combined_date, fill = monitor)) + 
-#   scale_fill_manual(limits = monitor_order_adv, values = monitor_colors) +
-#   # scale_fill_discrete(limits = monitor_order) +
-#   geom_bar() +
-#   # facet_wrap(~monitor) +
-#   labs(
-#     title = "Bird Calls over Time",
-#     x = "Date", y = "Count",
-#     fill = "Monitor Location"
-#   )
+nm_all_monitors |>
+  ggplot(aes(x = combined_date, fill = monitor)) +
+  scale_fill_manual(limits = monitor_order_adv, values = monitor_colors) +
+  # scale_fill_discrete(limits = monitor_order) +
+  geom_bar() +
+  # facet_wrap(~monitor) +
+  labs(
+    title = "Bird Calls over Time",
+    x = "Date", y = "Count",
+    fill = "Monitor Location"
+  )
+
+
+# flip back to normal!
+nm_all_monitors$monitor <- factor(nm_all_monitors$monitor, levels = monitor_order)
+
 
 # # total count of species     # done better down below
 # nm_top_10 |>
@@ -391,30 +427,30 @@ nm_all_monitors |>
 #     y = "Bird Species"
 #   )
 
-# num distinct species by location                  # how to make distinct birds?
-dis_by_loc <- nm_all_monitors |> 
-  group_by(monitor) |>
-  summarize(
-    n_distinct_birds = n_distinct(common_name)
-  ) 
-# dis_by_loc
-
-dis_by_loc |> 
-  ggplot(aes(x = monitor, y  = n_distinct_birds)) +
-  scale_x_discrete(limits = monitor_order) +
-  geom_col(fill = monitor_colors) + 
-  labs(
-    title = "Distinct Bird Species by Location",
-    x = "Monitor Location",
-    y = "Distinct Species"
-  )
+# # num distinct species by location                  # how to make distinct birds?
+# dis_by_loc <- nm_all_monitors |> 
+#   group_by(monitor) |>
+#   summarize(
+#     n_distinct_birds = n_distinct(common_name)
+#   ) 
+# # dis_by_loc
+# 
+# dis_by_loc |> 
+#   ggplot(aes(x = monitor, y  = n_distinct_birds)) +
+#   scale_x_discrete(limits = monitor_order) +
+#   geom_col(fill = monitor_colors) + 
+#   labs(
+#     title = "Distinct Bird Species by Location",
+#     x = "Monitor Location",
+#     y = "Distinct Species"
+#   )
 
 
 
 ### fill graphs
 
 
-# num rows per monitor per time period                    #works
+# num rows per monitor per time period                    #works                 # (FIGURE 7A)
 nm_all_monitors |> 
   count(monitor, time_period) |> 
   ggplot(aes(x = monitor, y = time_period)) +
@@ -443,7 +479,7 @@ nm_all_monitors |>
 #     fill = "Presence detected?"
 #   )
 
-nm_rare_birds |> 
+nm_rare_birds |>                                                                 # (FIGURE 7B)
   count(monitor, time_period) |> 
   ggplot(aes(x = monitor, y = time_period)) +
   scale_x_discrete(limits = monitor_order, guide = guide_axis(n.dodge=2)) +
@@ -457,7 +493,7 @@ nm_rare_birds |>
     fill = "Number of recorded calls"
   )
 
-# num rows per time period             # works
+# num rows per time period             # works                                   # (FIGURE 4)
 nm_all_monitors |> 
   count(combined_date, time_period) |> 
   ggplot(aes(x = combined_date, y = time_period)) +
@@ -542,7 +578,7 @@ nm_top_10 |>
 #     fill = "Number of recorded calls"
 #   )
 
-# num bird calls by date and location                           # works
+# num bird calls by date and location                           # works          # (FIGURE 3)
 nm_all_monitors |> 
   count(combined_date, monitor) |> 
   ggplot(aes(x = combined_date, y = monitor)) +
@@ -602,7 +638,7 @@ nm_rare_birds |>
     y = "Number of Recordings"
   )
 
-# distinct bird species by day per monitor        #works
+# distinct bird species by day per monitor        #works                         # (FIGURE 5)
 ndsd <- nm_all_monitors |> 
   group_by(monitor, combined_date) |> 
   summarize(
@@ -619,6 +655,24 @@ ndsd |>
     x = "Monitor Location",
     y = "Distinct Species per Day"
   )
+
+# doing the same as above, but with definite species           # not as much difference as might be expected
+ndsd2 <- nm_def_here |> 
+  group_by(monitor, combined_date) |> 
+  summarize(
+    num_dis_species_day = n_distinct(common_name)
+  ) 
+ndsd2 |> 
+  group_by(monitor) |> 
+  ggplot(aes(x = monitor, y = num_dis_species_day)) + 
+  scale_x_discrete(limits = monitor_order, guide = guide_axis(n.dodge=2)) +
+  geom_boxplot() +
+  labs(
+    title = "Bird Species Richness by Location",
+    subtitle = "Filtered for bird species with >= 10 recordings",
+    x = "Monitor Location",
+    y = "Distinct Species per Day"
+  ) 
 
 
 # num rows for each time period                 #works
@@ -691,7 +745,7 @@ rbd |>
   )
 
 
-# most common bird call frequency                        # works (cut off top 5) *
+# most common bird call frequency                        # works (cut off top 5) *  # (FIGURE 6)
 nm_top_10 |> 
   ggplot(aes(x = (fct_infreq(common_name)), fill = monitor)) + 
   scale_x_discrete(guide = guide_axis(n.dodge=2)) +
